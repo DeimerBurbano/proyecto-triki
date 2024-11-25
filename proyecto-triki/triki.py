@@ -4,7 +4,41 @@ import os
 # Archivo para guardar los usuarios
 ARCHIVO_USUARIOS = "usuarios.json"
 
-# Diccionario de usuarios
+# Clase Registro para representar a un usuario
+class Registro:
+    def __init__(self, nombre, edad, email, contraseña):
+        self.nombre = nombre
+        self.edad = edad
+        self.email = email
+        self.contraseña = contraseña
+        self.puntuacion_triqui = 0
+        self.listas = {}
+
+    def to_dict(self):
+        # Convertir el objeto a un diccionario para guardarlo en el archivo JSON
+        return {
+            "nombre": self.nombre,
+            "edad": self.edad,
+            "email": self.email,
+            "contraseña": self.contraseña,
+            "puntuacion_triqui": self.puntuacion_triqui,
+            "listas": self.listas
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        # Asegurarse de que los datos contienen todas las claves necesarias
+        nombre = data.get('nombre', 'Desconocido')
+        edad = data.get('edad', '0')
+        email = data.get('email', 'noemail@example.com')
+        contraseña = data.get('contraseña', '1234')
+        return cls(nombre, edad, email, contraseña)
+
+    def __str__(self):
+        return f"Nombre: {self.nombre}, Edad: {self.edad}, Email: {self.email}, Puntuación Triqui: {self.puntuacion_triqui}"
+
+
+# Diccionario de usuarios, donde la clave es el nombre de usuario
 usuarios = {}
 
 # Cargar usuarios desde el archivo JSON
@@ -12,21 +46,24 @@ def cargar_usuarios():
     global usuarios
     if os.path.exists(ARCHIVO_USUARIOS):
         with open(ARCHIVO_USUARIOS, "r") as archivo:
-            usuarios = json.load(archivo)
-
-            # Asegurarnos de que todos los usuarios tengan la clave 'puntuacion_triqui'
-            for usuario, datos in usuarios.items():
-                if 'puntuacion_triqui' not in datos:
-                    datos['puntuacion_triqui'] = 0  # Inicializar la puntuación si no existe
-                if 'listas' not in datos:
-                    datos['listas'] = {}  # Inicializar las listas si no existen
+            try:
+                data = json.load(archivo)
+                for usuario, datos in data.items():
+                    # Crear un objeto Registro para cada usuario
+                    usuarios[usuario] = Registro.from_dict(datos)
+            except json.JSONDecodeError:
+                print("Error al leer el archivo JSON. El archivo podría estar corrupto o vacío.")
+                usuarios = {}  # Reseteamos los usuarios
     else:
         usuarios = {}
 
 # Guardar usuarios en el archivo JSON
 def guardar_usuarios():
+    data = {}
+    for usuario, registro in usuarios.items():
+        data[usuario] = registro.to_dict()  # Convertimos el objeto en diccionario
     with open(ARCHIVO_USUARIOS, "w") as archivo:
-        json.dump(usuarios, archivo, indent=4)
+        json.dump(data, archivo, indent=4)
 
 # Registrar un usuario
 def registrar_usuario():
@@ -36,12 +73,13 @@ def registrar_usuario():
         print("El nombre de usuario ya está en uso.")
         return False
 
+    nombre = input("Ingrese su nombre: ")
+    edad = input("Ingrese su edad: ")
+    email = input("Ingrese su correo electrónico: ")
     contraseña = input("Ingrese una contraseña: ")
-    usuarios[usuario] = {
-        "contraseña": contraseña,
-        "listas": {},  # Cada usuario tendrá un diccionario de listas
-        "puntuacion_triqui": 0  # Puntuación para el juego de Triqui
-    }
+
+    # Crear el objeto Registro y agregarlo al diccionario de usuarios
+    usuarios[usuario] = Registro(nombre, edad, email, contraseña)
     guardar_usuarios()
     print("Usuario registrado con éxito!")
     return True
@@ -52,7 +90,7 @@ def iniciar_sesion():
     usuario = input("Ingrese su nombre de usuario: ")
     contraseña = input("Ingrese su contraseña: ")
 
-    if usuario in usuarios and usuarios[usuario]["contraseña"] == contraseña:
+    if usuario in usuarios and usuarios[usuario].contraseña == contraseña:
         print("Inicio de sesión exitoso!")
         return usuario
     else:
@@ -113,7 +151,7 @@ def jugar_triqui(usuario_actual):
             print(f"¡El jugador {jugador_actual} ha ganado!")
             if jugador_actual == 'X':
                 # Si 'X' gana, el usuario actual es el que tiene la puntuación aumentada
-                usuarios[usuario_actual]["puntuacion_triqui"] += 1
+                usuarios[usuario_actual].puntuacion_triqui += 1
             guardar_usuarios()  # Guardar los datos de usuario con la puntuación actualizada
             juego_terminado = True
         elif tablero_lleno(tablero):
@@ -127,46 +165,46 @@ def jugar_triqui(usuario_actual):
 def ver_puntuaciones():
     print("=== Puntuaciones de Triqui ===")
     for usuario, datos in usuarios.items():
-        print(f"{usuario}: {datos['puntuacion_triqui']} puntos")
+        print(f"{usuario}: {datos.puntuacion_triqui} puntos")
 
 # Crear una nueva lista para el usuario
 def crear_lista(usuario):
     nombre_lista = input("Ingrese el nombre de la lista: ")
-    if nombre_lista in usuarios[usuario]["listas"]:
+    if nombre_lista in usuarios[usuario].listas:
         print("La lista ya existe.")
     else:
-        usuarios[usuario]["listas"][nombre_lista] = []
+        usuarios[usuario].listas[nombre_lista] = []
         guardar_usuarios()
         print(f"Lista '{nombre_lista}' creada con éxito.")
 
 # Agregar un elemento a una lista
 def agregar_a_lista(usuario):
     nombre_lista = input("Ingrese el nombre de la lista a la que desea agregar un elemento: ")
-    if nombre_lista not in usuarios[usuario]["listas"]:
+    if nombre_lista not in usuarios[usuario].listas:
         print(f"La lista '{nombre_lista}' no existe.")
     else:
         elemento = input("Ingrese el elemento a agregar: ")
-        usuarios[usuario]["listas"][nombre_lista].append(elemento)
+        usuarios[usuario].listas[nombre_lista].append(elemento)
         guardar_usuarios()
         print(f"Elemento '{elemento}' agregado a la lista '{nombre_lista}'.")
 
 # Eliminar una lista
 def eliminar_lista(usuario):
     nombre_lista = input("Ingrese el nombre de la lista que desea eliminar: ")
-    if nombre_lista not in usuarios[usuario]["listas"]:
+    if nombre_lista not in usuarios[usuario].listas:
         print(f"La lista '{nombre_lista}' no existe.")
     else:
-        del usuarios[usuario]["listas"][nombre_lista]
+        del usuarios[usuario].listas[nombre_lista]
         guardar_usuarios()
         print(f"Lista '{nombre_lista}' eliminada con éxito.")
 
 # Eliminar un elemento de una lista
 def eliminar_elemento_lista(usuario):
     nombre_lista = input("Ingrese el nombre de la lista de la cual desea eliminar un elemento: ")
-    if nombre_lista not in usuarios[usuario]["listas"]:
+    if nombre_lista not in usuarios[usuario].listas:
         print(f"La lista '{nombre_lista}' no existe.")
     else:
-        lista = usuarios[usuario]["listas"][nombre_lista]
+        lista = usuarios[usuario].listas[nombre_lista]
         if not lista:
             print("La lista está vacía. No se pueden eliminar elementos.")
         else:
@@ -181,11 +219,11 @@ def eliminar_elemento_lista(usuario):
 
 # Ver las listas del usuario
 def ver_listas(usuario):
-    if not usuarios[usuario]["listas"]:
+    if not usuarios[usuario].listas:
         print("No tienes listas creadas.")
     else:
         print("Tus listas:")
-        for nombre_lista, elementos in usuarios[usuario]["listas"].items():
+        for nombre_lista, elementos in usuarios[usuario].listas.items():
             print(f"{nombre_lista}: {elementos}")
 
 # Programa principal
